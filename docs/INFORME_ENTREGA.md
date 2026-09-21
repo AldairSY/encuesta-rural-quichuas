@@ -116,7 +116,7 @@ Web/Sites/Vercel: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APP_ORIGIN`. Edge: `SUPA
 
 Resultados ya ejecutados:
 
-- 13 pruebas unitarias: formato DNI, ceros iniciales, consentimiento, UUID, apellido opcional y normalización porcentual.
+- 16 pruebas unitarias: formato DNI, ceros iniciales, consentimiento, UUID, apellido opcional, normalización porcentual, campos opcionales del candidato, longitud de descripción y firmas de imágenes.
 - 18 pruebas HTTP contra aplicación/Supabase reales: rutas, denegación admin, origen, privacidad REST, RPC pública y Edge desplegada.
 - 26 grupos de aserciones SQL sobre funciones desplegadas: todos los casos solicitados salvo concurrencia, además de atomicidad, rate limit, roles y publicación oculta. Fixtures revertidos con ROLLBACK.
 - Concurrencia: conexiones PostgreSQL 19090 y 19106 ejecutaron simultáneamente la misma RPC en un esquema QA aislado. Resultado: `{"ok":true}` y `{"ok":false,"code":"DNI_DUPLICADO"}`. Una sola participación/respuesta. El esquema QA fue eliminado después.

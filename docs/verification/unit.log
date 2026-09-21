@@ -1,21 +1,24 @@
-✔ DNI con ceros iniciales se conserva como texto (0.7893ms)
-✔ Rechaza formato DNI: 1234567 (0.1117ms)
-✔ Rechaza formato DNI: 123456789 (0.0603ms)
-✔ Rechaza formato DNI: 123A5678 (0.0461ms)
-✔ Rechaza formato DNI: １２３４５６７８ (0.067ms)
-✔ Rechaza formato DNI:  12345678 (0.0786ms)
-✔ Rechaza formato DNI: 12345678 (0.0569ms)
-✔ Consentimiento no puede falsificarse como cadena (0.0778ms)
-✔ UUID de comunidad inválido rechazado (0.6527ms)
-✔ Apellido materno es opcional (0.1659ms)
-✔ Normalización porcentual reparte centésimas sin perder total (0.591ms)
-✔ Normalización a cero reparte total determinísticamente (0.073ms)
-✔ Valores cercanos preservan orden y total 100 (0.1162ms)
-ℹ tests 13
+✔ DNI con ceros iniciales se conserva como texto (0.7892ms)
+✔ Rechaza formato DNI: 1234567 (0.1056ms)
+✔ Rechaza formato DNI: 123456789 (0.0511ms)
+✔ Rechaza formato DNI: 123A5678 (0.0431ms)
+✔ Rechaza formato DNI: １２３４５６７８ (0.085ms)
+✔ Rechaza formato DNI:  12345678 (0.0451ms)
+✔ Rechaza formato DNI: 12345678 (0.0483ms)
+✔ Consentimiento no puede falsificarse como cadena (0.0723ms)
+✔ UUID de comunidad inválido rechazado (0.0777ms)
+✔ Apellido materno es opcional (0.1154ms)
+✔ Normalización porcentual reparte centésimas sin perder total (0.5684ms)
+✔ Normalización a cero reparte total determinísticamente (0.0845ms)
+✔ Valores cercanos preservan orden y total 100 (0.1078ms)
+✔ Candidato acepta campos opcionales vacíos y los normaliza (1.1562ms)
+✔ Descripción de candidato acepta hasta 5000 caracteres (0.5197ms)
+✔ Detecta imágenes por firma binaria (0.1633ms)
+ℹ tests 16
 ℹ suites 0
-ℹ pass 13
+ℹ pass 16
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 94.1579
+ℹ duration_ms 108.1721

@@ -13,7 +13,7 @@ const checks = [
       "tests",
     ],
   ],
-  ["typecheck", ["node_modules/typescript/bin/tsc", "--noEmit"]],
+  ["typecheck", ["scripts/typecheck.mjs"]],
   ["unit", ["--experimental-strip-types", "--test", "tests/unit.test.mjs"]],
   ["http", ["--test", "tests/http.test.mjs"]],
   ["build-sites", ["node_modules/vinext/dist/cli.js", "build"]],

@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { entitySchemas } from "../lib/schemas.ts";
+import { detectImageMime, imageExtension } from "../lib/upload.ts";
 import { validateParticipation } from "../supabase/functions/_shared/validation.ts";
 import { normalizePercentages } from "../lib/client.ts";
 const valid = {
@@ -56,4 +58,57 @@ test("Valores cercanos preservan orden y total 100", () => {
   const v = normalizePercentages([123, 122, 121]);
   assert(v[0] > v[1] && v[1] > v[2]);
   assert.equal(Math.round(v.reduce((a, b) => a + b, 0) * 100), 10000);
+});
+
+const candidate = {
+  encuesta_id: "d671d9d5-e6a6-4afb-8762-672b7e5c4b83",
+  nombre_completo: "María Quispe",
+  cargo: "Alcaldesa distrital",
+  organizacion_politica: "Organización vecinal",
+  foto_url: null,
+  simbolo_url: null,
+  numero_lista: "",
+  descripcion: "",
+  orden_visual: 0,
+  activo: true,
+};
+
+test("Candidato acepta campos opcionales vacíos y los normaliza", () => {
+  const parsed = entitySchemas.candidatos.parse(candidate);
+  assert.equal(parsed.numero_lista, null);
+  assert.equal(parsed.descripcion, null);
+});
+
+test("Descripción de candidato acepta hasta 5000 caracteres", () => {
+  assert.equal(
+    entitySchemas.candidatos.safeParse({
+      ...candidate,
+      descripcion: "a".repeat(5000),
+    }).success,
+    true,
+  );
+  assert.equal(
+    entitySchemas.candidatos.safeParse({
+      ...candidate,
+      descripcion: "a".repeat(5001),
+    }).success,
+    false,
+  );
+});
+
+test("Detecta imágenes por firma binaria", () => {
+  assert.equal(
+    detectImageMime(
+      Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]),
+    ),
+    "image/png",
+  );
+  assert.equal(
+    detectImageMime(
+      Uint8Array.from([255, 216, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    ),
+    "image/jpeg",
+  );
+  assert.equal(imageExtension("image/jpeg"), "jpg");
+  assert.equal(detectImageMime(Uint8Array.from({ length: 12 }, () => 0)), null);
 });

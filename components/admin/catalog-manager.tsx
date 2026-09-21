@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Pencil } from "lucide-react";
 import {
   Dialog,
@@ -133,7 +133,9 @@ export function CatalogManager({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const allowed = ["SUPER_ADMIN", "ADMIN"].includes(profile.rol);
+  const needsSurvey = entity === "candidatos" && !catalog.encuestas.length;
   const rows = (entity === "encuestas"
     ? catalog.encuestas
     : entity === "candidatos"
@@ -233,6 +235,7 @@ export function CatalogManager({
       await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar.");
+      requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       setBusy(false);
     }
@@ -281,12 +284,22 @@ export function CatalogManager({
           ]}
         />
         {allowed && (
-          <button className="button" onClick={() => edit()}>
+          <button
+            className="button"
+            onClick={() => edit()}
+            disabled={needsSurvey}
+            title={needsSurvey ? "Primero crea una encuesta." : undefined}
+          >
             <Plus size={18} />
             Nueva/o {title}
           </button>
         )}
       </div>
+      {needsSurvey && (
+        <p className="notice" role="status">
+          Primero crea una encuesta. Cada candidato debe pertenecer a una.
+        </p>
+      )}
       {message && (
         <p className="notice success" role="status">
           {message}
@@ -374,7 +387,12 @@ export function CatalogManager({
           </DialogHeader>
           <form onSubmit={save}>
             {error && (
-              <p className="notice error" role="alert">
+              <p
+                ref={errorRef}
+                className="notice error"
+                role="alert"
+                tabIndex={-1}
+              >
                 {error}
               </p>
             )}

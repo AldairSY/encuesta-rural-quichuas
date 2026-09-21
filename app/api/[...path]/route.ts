@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sb, rpc, publicData, environment, ApiError } from "@/lib/server";
 import { authContext, setSession, clearSession } from "@/lib/auth";
 import { entitySchemas, listSchema } from "@/lib/schemas";
+import { detectImageMime, imageExtension } from "@/lib/upload";
 import type { AuthSession } from "@/lib/auth";
 import type { Config, Profile } from "@/lib/types";
 const writeRoles = ["SUPER_ADMIN", "ADMIN"];
@@ -17,11 +18,30 @@ function response(value: unknown, status = 200) {
   });
 }
 function handleError(e: unknown) {
-  if (e instanceof z.ZodError)
-    return response(
-      { message: e.issues[0]?.message || "Revisa los datos ingresados." },
-      400,
-    );
+  if (e instanceof z.ZodError) {
+    const issue = e.issues[0];
+    const field = String(issue?.path.at(-1) || "");
+    const labels: Record<string, string> = {
+      encuesta_id: "Encuesta",
+      nombre_completo: "Nombre completo",
+      cargo: "Cargo",
+      organizacion_politica: "Organización política",
+      descripcion: "Descripción",
+      orden_visual: "Orden visual",
+      nombre: "Nombre",
+      departamento: "Departamento",
+      provincia: "Provincia",
+      distrito: "Distrito",
+    };
+    const label = labels[field] || "datos ingresados";
+    const detail =
+      issue?.code === "too_big"
+        ? `El campo «${label}» supera el máximo permitido.`
+        : issue?.code === "too_small"
+          ? `Completa correctamente el campo «${label}».`
+          : `Revisa el campo «${label}».`;
+    return response({ message: detail }, 400);
+  }
   if (e instanceof ApiError) {
     const message =
       e.code === "23505"
@@ -227,32 +247,13 @@ export async function POST(req: NextRequest) {
           400,
         );
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const png =
-        bytes[0] === 137 &&
-        bytes[1] === 80 &&
-        bytes[2] === 78 &&
-        bytes[3] === 71 &&
-        bytes[4] === 13 &&
-        bytes[5] === 10 &&
-        bytes[6] === 26 &&
-        bytes[7] === 10;
-      const jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
-      const webp =
-        new TextDecoder().decode(bytes.slice(0, 4)) === "RIFF" &&
-        new TextDecoder().decode(bytes.slice(8, 12)) === "WEBP";
-      const mime = png
-        ? "image/png"
-        : jpeg
-          ? "image/jpeg"
-          : webp
-            ? "image/webp"
-            : "";
-      if (!mime || file.type !== mime)
+      const mime = detectImageMime(bytes);
+      if (!mime)
         return response(
           { message: "Solo se aceptan imágenes JPEG, PNG o WEBP válidas." },
           400,
         );
-      const name = `${crypto.randomUUID()}.${png ? "png" : jpeg ? "jpg" : "webp"}`;
+      const name = `${crypto.randomUUID()}.${imageExtension(mime)}`;
       const env = environment();
       const uploaded = await fetch(
         `${env.url}/storage/v1/object/${bucket}/${name}`,

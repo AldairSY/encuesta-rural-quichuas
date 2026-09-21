@@ -1,6 +1,11 @@
 import { z } from "zod";
 const short = z.string().trim().min(2).max(200);
-const nullable = z.string().trim().max(2000).nullable().optional();
+const optionalText = (maximum: number) =>
+  z.preprocess(
+    (value) => (value === "" ? null : value),
+    z.string().trim().max(maximum).nullable().optional(),
+  );
+const nullable = optionalText(2000);
 const image = z
   .string()
   .url()
@@ -44,7 +49,7 @@ export const entitySchemas = {
     foto_url: image,
     simbolo_url: image,
     numero_lista: nullable,
-    descripcion: nullable,
+    descripcion: optionalText(5000),
     orden_visual: z.number().int().min(0).max(10000),
     activo: z.boolean(),
   }),
