@@ -1,0 +1,32 @@
+[
+  {
+    "check": "lint",
+    "exitCode": 0,
+    "passed": true
+  },
+  {
+    "check": "typecheck",
+    "exitCode": 0,
+    "passed": true
+  },
+  {
+    "check": "unit",
+    "exitCode": 0,
+    "passed": true
+  },
+  {
+    "check": "http",
+    "exitCode": 0,
+    "passed": true
+  },
+  {
+    "check": "build-sites",
+    "exitCode": 0,
+    "passed": true
+  },
+  {
+    "check": "build-vercel",
+    "exitCode": 0,
+    "passed": true
+  }
+]

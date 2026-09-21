@@ -1,0 +1,21 @@
+✔ DNI con ceros iniciales se conserva como texto (0.7893ms)
+✔ Rechaza formato DNI: 1234567 (0.1117ms)
+✔ Rechaza formato DNI: 123456789 (0.0603ms)
+✔ Rechaza formato DNI: 123A5678 (0.0461ms)
+✔ Rechaza formato DNI: １２３４５６７８ (0.067ms)
+✔ Rechaza formato DNI:  12345678 (0.0786ms)
+✔ Rechaza formato DNI: 12345678 (0.0569ms)
+✔ Consentimiento no puede falsificarse como cadena (0.0778ms)
+✔ UUID de comunidad inválido rechazado (0.6527ms)
+✔ Apellido materno es opcional (0.1659ms)
+✔ Normalización porcentual reparte centésimas sin perder total (0.591ms)
+✔ Normalización a cero reparte total determinísticamente (0.073ms)
+✔ Valores cercanos preservan orden y total 100 (0.1162ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 94.1579

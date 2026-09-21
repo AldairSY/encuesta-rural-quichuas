@@ -1,0 +1,26 @@
+✔ Catálogo se obtiene del Supabase configurado (444.5183ms)
+✔ Ruta / (412.3735ms)
+✔ Ruta /participar (2199.5673ms)
+✔ Ruta /resultados (419.4547ms)
+✔ Ruta /informacion (314.0599ms)
+✔ Ruta /admin (29.9365ms)
+✔ Página admin privada redirige sin sesión (23.8018ms)
+✔ API admin deniega acceso sin sesión (10.0686ms)
+✔ API rechaza origen ajeno (3.2976ms)
+✔ REST anónimo protege participantes (348.9348ms)
+✔ REST anónimo protege respuestas (346.2399ms)
+✔ REST anónimo protege fraud_events (140.1115ms)
+✔ REST anónimo protege audit_logs (134.6581ms)
+✔ REST anónimo protege resultado_simulacion (145.1086ms)
+✔ REST anónimo protege profiles (136.3004ms)
+✔ RPC agregada anónima permitida (144.778ms)
+✔ Edge desplegada valida DNI antes de registrar (561.9654ms)
+✔ La participación RPC directa no está expuesta al público (139.1771ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6020.1682

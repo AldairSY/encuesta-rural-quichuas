@@ -1,0 +1,4 @@
+project_id = "encuesta-rural"
+[functions.participar]
+verify_jwt = true
+entrypoint = "./functions/participar/index.ts"
