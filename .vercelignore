@@ -1,0 +1,20 @@
+# Exclude local credentials and generated files from CLI deployments.
+.env*
+!.env.example
+.git/
+.vercel/
+node_modules/
+.next/
+.vinext/
+dist/
+.wrangler/
+.sites-runtime/
+.agents/
+.codex/
+outputs/
+work/
+artifacts/
+coverage/
+*.tsbuildinfo
+*.pem
+npm-debug.log*
