@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { sb, rpc, publicData, environment, ApiError } from "@/lib/server";
 import { authContext, setSession, clearSession } from "@/lib/auth";
@@ -72,14 +73,14 @@ function handleError(e: unknown) {
   );
 }
 async function catalogs(token?: string) {
-  const [config, encuestas, centros, candidatos] = await Promise.all([
+  const [configs, encuestasRaw, centrosRaw, candidatos] = await Promise.all([
     sb<Config[]>("/rest/v1/configuracion?select=*", {}, token),
-    sb(
+    sb<Record<string, unknown>[]>(
       "/rest/v1/encuestas?select=id,titulo,descripcion,departamento,provincia,distrito,fecha_inicio,fecha_fin,estado,mostrar_resultados&order=created_at.desc&limit=300",
       {},
       token,
     ),
-    sb(
+    sb<Record<string, unknown>[]>(
       "/rest/v1/centros_poblados?select=id,nombre,tipo,codigo,departamento,provincia,distrito,activo&order=nombre&limit=1000",
       {},
       token,
@@ -90,7 +91,55 @@ async function catalogs(token?: string) {
       token,
     ),
   ]);
-  return { config: config[0], encuestas, centros, candidatos };
+
+  const configRaw = configs[0];
+  const config = configRaw
+    ? {
+        ...configRaw,
+        distrito:
+          configRaw.distrito === "Andamarca"
+            ? "Quichuas"
+            : configRaw.distrito || "Quichuas",
+        provincia:
+          configRaw.provincia === "Concepción"
+            ? "Tayacaja"
+            : configRaw.provincia || "Tayacaja",
+        departamento:
+          configRaw.departamento === "Junín"
+            ? "Huancavelica"
+            : configRaw.departamento || "Huancavelica",
+      }
+    : configRaw;
+
+  const encuestas = (encuestasRaw || []).map((e) => ({
+    ...e,
+    titulo: String(e.titulo || "")
+      .replaceAll("Andamarca", "Quichuas")
+      .replaceAll(
+        "Municipalidad Distrital de Andamarca",
+        "Municipalidad Distrital de Quichuas",
+      ),
+    descripcion: String(e.descripcion || "")
+      .replaceAll("Andamarca", "Quichuas")
+      .replaceAll("Concepción", "Tayacaja")
+      .replaceAll("Junín", "Huancavelica")
+      .replaceAll(
+        "Municipalidad Distrital de Andamarca",
+        "Municipalidad Distrital de Quichuas",
+      ),
+    distrito: e.distrito === "Andamarca" ? "Quichuas" : e.distrito,
+    provincia: e.provincia === "Concepción" ? "Tayacaja" : e.provincia,
+    departamento: e.departamento === "Junín" ? "Huancavelica" : e.departamento,
+  }));
+
+  const centros = (centrosRaw || []).map((c) => ({
+    ...c,
+    distrito: c.distrito === "Andamarca" ? "Quichuas" : c.distrito,
+    provincia: c.provincia === "Concepción" ? "Tayacaja" : c.provincia,
+    departamento: c.departamento === "Junín" ? "Huancavelica" : c.departamento,
+  }));
+
+  return { config, encuestas, centros, candidatos };
 }
 export async function GET(req: NextRequest) {
   try {
@@ -108,14 +157,81 @@ export async function GET(req: NextRequest) {
         .uuid()
         .nullable()
         .parse(req.nextUrl.searchParams.get("centro"));
-      const [rows, summary, centros] = await Promise.all([
-        rpc("get_resultados_por_centro", {
+      const [rowsRaw, summaryRaw, centrosRaw] = await Promise.all([
+        rpc<
+          {
+            candidato_id: string;
+            nombre_candidato: string;
+            organizacion_politica: string;
+            foto_url: string | null;
+            simbolo_url: string | null;
+            cantidad_respuestas: number;
+            porcentaje: number;
+          }[]
+        >("get_resultados_por_centro", {
           encuesta_uuid: id,
           centro_poblado_uuid: centro,
         }),
-        rpc("get_resumen_publico", { encuesta_uuid: id }),
+        rpc<{
+          total_participaciones: number | null;
+          total_centros_poblados: number;
+          total_comunidades: number;
+          ultima_actualizacion: string | null;
+        }>("get_resumen_publico", { encuesta_uuid: id }),
         rpc("get_participacion_centros", { encuesta_uuid: id }),
       ]);
+
+      let rows = rowsRaw || [];
+      let summary = summaryRaw;
+      const centros = centrosRaw || [];
+
+      const totalReal =
+        (summary?.total_participaciones ?? 0) > 0 ||
+        rows.some((r) => Number(r.cantidad_respuestas) > 0);
+
+      if (!totalReal && !centro) {
+        try {
+          const jar = await cookies();
+          const token = jar.get("rural_access")?.value;
+          const simRows = await sb<
+            {
+              candidato_id: string;
+              porcentaje: number;
+              cantidad_simulada: number;
+              total_simulado: number;
+            }[]
+          >(
+            `/rest/v1/resultado_simulacion?select=candidato_id,porcentaje,cantidad_simulada,total_simulado&encuesta_id=eq.${id}`,
+            {},
+            token,
+          );
+
+          if (simRows && simRows.length > 0) {
+            const simMap = new Map(simRows.map((s) => [s.candidato_id, s]));
+            rows = rows
+              .map((r) => {
+                const sim = simMap.get(r.candidato_id);
+                return {
+                  ...r,
+                  cantidad_respuestas: sim
+                    ? sim.cantidad_simulada
+                    : r.cantidad_respuestas,
+                  porcentaje: sim ? Number(sim.porcentaje) : r.porcentaje,
+                };
+              })
+              .sort((a, b) => Number(b.porcentaje) - Number(a.porcentaje));
+
+            const totalSim = simRows[0]?.total_simulado ?? 0;
+            summary = {
+              ...summary,
+              total_participaciones: totalSim,
+            };
+          }
+        } catch {
+          // Si no hay token de admin o no se pudo consultar, continuar con valores reales
+        }
+      }
+
       return response({ rows, summary, centros });
     }
     const { token, profile } = await authContext();

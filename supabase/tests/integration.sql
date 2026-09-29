@@ -3,8 +3,8 @@ begin;
 do $$
 declare eid uuid;cid uuid;aid uuid;bid uuid;uid uuid:=gen_random_uuid();pid uuid;rid uuid;outcome jsonb;before_real jsonb;after_real jsonb;count_before bigint;tests jsonb:='[]';d text;ok boolean;page jsonb;
 begin
- insert into public.encuestas(titulo,departamento,provincia,distrito,estado,fecha_inicio,fecha_fin) values('DEMO TEST TRANSACCIONAL','Junín','Concepción','Andamarca','ACTIVA',now()-interval '1 day',now()+interval '1 day') returning id into eid;
- insert into public.centros_poblados(nombre,tipo,departamento,provincia,distrito) values('COMUNIDAD DEMO TRANSACCIONAL','COMUNIDAD','Junín','Concepción','Andamarca') returning id into cid;
+ insert into public.encuestas(titulo,departamento,provincia,distrito,estado,fecha_inicio,fecha_fin) values('DEMO TEST TRANSACCIONAL','Huancavelica','Tayacaja','Quichuas','ACTIVA',now()-interval '1 day',now()+interval '1 day') returning id into eid;
+ insert into public.centros_poblados(nombre,tipo,departamento,provincia,distrito) values('COMUNIDAD DEMO TRANSACCIONAL','COMUNIDAD','Huancavelica','Tayacaja','Quichuas') returning id into cid;
  insert into public.candidatos(encuesta_id,nombre_completo,cargo,organizacion_politica) values(eid,'CANDIDATO DEMO A','CARGO DEMO','ORGANIZACION DEMO') returning id into aid;
  insert into public.candidatos(encuesta_id,nombre_completo,cargo,organizacion_politica) values(eid,'CANDIDATO DEMO B','CARGO DEMO','ORGANIZACION DEMO') returning id into bid;
  outcome=public.registrar_participacion('00000001','  José  ','Quispe','Huamán',cid,eid,aid,'qa-ip','qa-device-a',gen_random_uuid(),'QA','1.0',true);

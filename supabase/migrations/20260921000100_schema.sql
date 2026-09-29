@@ -11,7 +11,7 @@ create table public.profiles (
 create table public.configuracion (
  id integer primary key default 1 check(id=1), nombre text not null default 'ENCUESTA RURAL' check(length(trim(nombre)) between 1 and 100),
  subtitulo text not null default 'Sistema de Participación Ciudadana', logo_url text,
- departamento text not null default 'Junín', provincia text not null default 'Concepción', distrito text not null default 'Andamarca',
+ departamento text not null default 'Huancavelica', provincia text not null default 'Tayacaja', distrito text not null default 'Quichuas',
  bienvenida text not null default 'Participa en el sondeo de opinión de tu distrito, Centro Poblado o Comunidad.',
  privacidad text not null default 'Los datos proporcionados serán utilizados para registrar y validar su participación, prevenir registros duplicados y proteger la integridad del sondeo. Los datos personales no serán mostrados públicamente.',
  privacidad_version text not null default '1.0', informacion_institucional text not null default '', mostrar_resultados boolean not null default true,

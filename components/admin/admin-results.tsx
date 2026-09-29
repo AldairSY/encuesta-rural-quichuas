@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -38,7 +39,8 @@ export function AdminResults({
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
-    [reset, setReset] = useState(false);
+    [reset, setReset] = useState(false),
+    [showEditor, setShowEditor] = useState(false);
   const candidates = catalog.candidatos.filter((c) => c.encuesta_id === survey),
     editable = ["SUPER_ADMIN", "ADMIN"].includes(profile.rol);
   useEffect(() => {
@@ -116,13 +118,29 @@ export function AdminResults({
           porcentaje: values[c.id] || 0,
         })),
       });
-      setMessage("Simulación guardada. Los resultados reales no cambiaron.");
+      setMessage("Resultados guardados y actualizados correctamente.");
+      setShowEditor(false);
+      const [r, s] = await Promise.all([
+        api<Resultado[]>(`admin/results?encuesta=${survey}`),
+        api<SimRow[]>(`admin/simulation?encuesta=${survey}`),
+      ]);
+      setReal(r);
+      if (s && s.length) {
+        setValues(
+          Object.fromEntries(
+            s.map((x) => [x.candidato_id, Number(x.porcentaje)]),
+          ),
+        );
+        setTotal(s[0]?.total_simulado ?? 1500);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar.");
     } finally {
       setBusy(false);
     }
   }
+  const hasRealVotes = real.some((r) => Number(r.cantidad_respuestas) > 0);
+  const displayRows = hasRealVotes ? real : simulated;
   return (
     <>
       <SelectField
@@ -166,11 +184,198 @@ export function AdminResults({
             <TabsTrigger value="simulation">Modo prueba</TabsTrigger>
           </TabsList>
           <TabsContent value="real">
-            <p className="notice">
-              Estos valores se calculan exclusivamente a partir de respuestas
-              válidas. No se pueden editar como porcentajes.
-            </p>
-            <ResultsDisplay rows={real} />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 p-4 bg-white border border-[#E2E8F0] rounded-xl shadow-xs">
+              <div>
+                <h3 className="font-bold text-[#0B2545] text-base">
+                  Resultados del Sondeo
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {hasRealVotes
+                    ? "Calculado a partir de respuestas válidas de los participantes."
+                    : "Mostrando los resultados configurados para este sondeo."}
+                </p>
+              </div>
+              {editable && (
+                <button
+                  type="button"
+                  className={
+                    showEditor
+                      ? "btn-secondary-white min-h-[44px] text-xs font-bold px-4 py-2 flex items-center gap-1.5"
+                      : "btn-primary-red min-h-[44px] text-xs font-bold px-4 py-2 flex items-center gap-1.5"
+                  }
+                  onClick={() => setShowEditor(!showEditor)}
+                >
+                  <Pencil size={15} />
+                  <span>{showEditor ? "Cerrar editor" : "Modificar resultados"}</span>
+                </button>
+              )}
+            </div>
+
+            {showEditor && editable && (
+              <div className="mb-6 p-5 sm:p-6 bg-slate-50 border-2 border-[#12355B]/20 rounded-2xl">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                  <h4 className="font-extrabold text-[#0B2545] text-sm uppercase tracking-wide">
+                    Editor de Resultados y Porcentajes
+                  </h4>
+                  <span className="text-xs font-semibold text-slate-500">
+                    Encuesta: {catalog.encuestas.find((e) => e.id === survey)?.titulo}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="field">
+                    <label htmlFor="edit-total-real">
+                      Total general de participantes
+                    </label>
+                    <input
+                      id="edit-total-real"
+                      type="number"
+                      min={0}
+                      max={10000000}
+                      step={1}
+                      value={total}
+                      disabled={busy}
+                      onChange={(e) =>
+                        setTotal(
+                          Math.max(
+                            0,
+                            Math.min(10000000, Number(e.target.value)),
+                          ),
+                        )
+                      }
+                    />
+                    <small className="text-slate-500">
+                      Número total de votos sobre el cual se calculan los porcentajes.
+                    </small>
+                  </div>
+
+                  <div className="flex flex-col justify-end">
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      <button
+                        type="button"
+                        className="button secondary text-xs py-2 px-3"
+                        disabled={busy}
+                        onClick={() => {
+                          const v = normalizePercentages(
+                            candidates.map((c) => values[c.id] || 0),
+                          );
+                          setValues(
+                            Object.fromEntries(
+                              candidates.map((c, i) => [c.id, v[i]]),
+                            ),
+                          );
+                        }}
+                      >
+                        Normalizar a 100%
+                      </button>
+                      {[
+                        ["EMPATE", "Empate"],
+                        ["CERRADO", "Cerrado"],
+                        ["AMPLIO", "Amplio"],
+                        ["ALEATORIO", "Aleatorio"],
+                      ].map(([kind, label]) => (
+                        <button
+                          key={kind}
+                          type="button"
+                          className="preset text-xs py-1.5 px-2.5"
+                          onClick={() => preset(kind)}
+                          disabled={busy}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  {candidates.map((c) => {
+                    const pct = values[c.id] ?? 0;
+                    const votes = Math.round((pct * total) / 100);
+                    return (
+                      <div
+                        key={c.id}
+                        className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {c.foto_url && (
+                            <img
+                              src={c.foto_url}
+                              alt=""
+                              className="w-10 h-10 rounded-lg object-contain bg-slate-100 border border-slate-200 shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <span className="font-bold text-xs text-[#0B2545] truncate block">
+                              {c.nombre_completo}
+                            </span>
+                            <span className="text-[11px] text-slate-500 truncate block">
+                              {c.organizacion_politica} · ~{votes.toLocaleString("es-PE")} votos
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="0.01"
+                            value={pct}
+                            disabled={busy}
+                            className="w-20 text-right text-xs font-bold border border-slate-300 rounded-lg py-1.5 px-2"
+                            onChange={(e) =>
+                              setValues({
+                                ...values,
+                                [c.id]:
+                                  Math.round(
+                                    Math.max(
+                                      0,
+                                      Math.min(100, Number(e.target.value)),
+                                    ) * 100,
+                                  ) / 100,
+                              })
+                            }
+                          />
+                          <span className="text-xs font-bold text-slate-500">%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-200">
+                  <span
+                    className={`text-xs font-bold ${
+                      sum === 100 ? "text-emerald-700" : "text-amber-700"
+                    }`}
+                  >
+                    Suma total: {sum.toFixed(2)}% {sum === 100 ? "✓ (Válido)" : "⚠️ Debe sumar exactamente 100%"}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="button secondary text-xs py-2 px-4"
+                      disabled={busy}
+                      onClick={() => setShowEditor(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="button text-xs py-2 px-5"
+                      disabled={busy || sum !== 100}
+                      onClick={save}
+                    >
+                      {busy ? "Guardando…" : "Guardar y publicar resultados"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <ResultsDisplay rows={displayRows} />
           </TabsContent>
           <TabsContent value="simulation">
             <div className="simulation-banner">

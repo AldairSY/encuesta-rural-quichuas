@@ -463,7 +463,7 @@ export function Records({
           if (!v && !busy) setRow(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full sm:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-6 sm:p-8">
           <DialogHeader>
             <DialogTitle>Revisión administrativa</DialogTitle>
             <DialogDescription>

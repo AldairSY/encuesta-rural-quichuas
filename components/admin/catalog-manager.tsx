@@ -51,47 +51,46 @@ export function Upload({
     [error, setError] = useState("");
   return (
     <div className="field">
-      <label>
-        {label}
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          disabled={disabled || busy}
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            setError("");
-            if (file.size > 3145728) {
-              setError("El máximo es 3 MB.");
-              return;
-            }
-            setBusy(true);
-            try {
-              const form = new FormData();
-              form.set("file", file);
-              form.set("bucket", bucket);
-              const res = await fetch("/api/admin/upload", {
-                method: "POST",
-                body: form,
-              });
-              const result = (await res.json()) as {
-                url: string;
-                message?: string;
-              };
-              if (!res.ok) throw new Error(result.message);
-              onChange(result.url);
-            } catch (err) {
-              setError(
-                err instanceof Error
-                  ? err.message
-                  : "No se pudo subir la imagen.",
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      </label>
+      <span className="font-bold text-xs sm:text-sm text-[#0B2545]">{label}</span>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        disabled={disabled || busy}
+        className="w-full max-w-full text-xs"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          setError("");
+          if (file.size > 3145728) {
+            setError("El máximo es 3 MB.");
+            return;
+          }
+          setBusy(true);
+          try {
+            const form = new FormData();
+            form.set("file", file);
+            form.set("bucket", bucket);
+            const res = await fetch("/api/admin/upload", {
+              method: "POST",
+              body: form,
+            });
+            const result = (await res.json()) as {
+              url: string;
+              message?: string;
+            };
+            if (!res.ok) throw new Error(result.message);
+            onChange(result.url);
+          } catch (err) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "No se pudo subir la imagen.",
+            );
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
       <small>JPEG, PNG o WEBP · hasta 3 MB{busy ? " · Subiendo…" : ""}</small>
       {value && (
         <div className="upload-preview">
@@ -374,7 +373,7 @@ export function CatalogManager({
           if (!busy) setOpen(v);
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full sm:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-6 sm:p-8">
           <DialogHeader>
             <DialogTitle>
               {id ? "Editar" : "Crear"} {title}
@@ -399,22 +398,12 @@ export function CatalogManager({
             <div className="form-grid">
               {entity === "encuestas" ? (
                 <>
-                  {text("titulo", "Título")}
+                  <div className="full">
+                    {text("titulo", "Título")}
+                  </div>
                   {text("departamento", "Departamento")}
                   {text("provincia", "Provincia")}
                   {text("distrito", "Distrito")}
-                  {text(
-                    "fecha_inicio",
-                    "Inicio · hora de Perú",
-                    false,
-                    "datetime-local",
-                  )}
-                  {text(
-                    "fecha_fin",
-                    "Cierre · hora de Perú",
-                    false,
-                    "datetime-local",
-                  )}
                   <SelectField
                     id="edit-state"
                     label="Estado"
@@ -428,56 +417,76 @@ export function CatalogManager({
                       "ARCHIVADA",
                     ].map((v) => ({ value: v, label: v }))}
                   />
-                  <CheckField
-                    id="edit-show"
-                    label="Publicar resultados"
-                    checked={Boolean(values.mostrar_resultados)}
-                    onChange={(v) => set("mostrar_resultados", v)}
-                  />
+                  {text(
+                    "fecha_inicio",
+                    "Inicio · hora de Perú",
+                    false,
+                    "datetime-local",
+                  )}
+                  {text(
+                    "fecha_fin",
+                    "Cierre · hora de Perú",
+                    false,
+                    "datetime-local",
+                  )}
+                  <div className="full pt-2">
+                    <CheckField
+                      id="edit-show"
+                      label="Publicar resultados"
+                      checked={Boolean(values.mostrar_resultados)}
+                      onChange={(v) => set("mostrar_resultados", v)}
+                    />
+                  </div>
                 </>
               ) : entity === "candidatos" ? (
                 <>
-                  <SelectField
-                    id="edit-survey"
-                    label="Encuesta"
-                    value={String(values.encuesta_id)}
-                    onChange={(v) => set("encuesta_id", v)}
-                    disabled={!!id}
-                    options={[
-                      { value: "", label: "Seleccionar encuesta" },
-                      ...catalog.encuestas.map((e) => ({
-                        value: e.id,
-                        label: e.titulo,
-                      })),
-                    ]}
-                  />
+                  <div className="full">
+                    <SelectField
+                      id="edit-survey"
+                      label="Encuesta"
+                      value={String(values.encuesta_id)}
+                      onChange={(v) => set("encuesta_id", v)}
+                      disabled={!!id}
+                      options={[
+                        { value: "", label: "Seleccionar encuesta" },
+                        ...catalog.encuestas.map((e) => ({
+                          value: e.id,
+                          label: e.titulo,
+                        })),
+                      ]}
+                    />
+                  </div>
                   {text("nombre_completo", "Nombre completo")}
                   {text("cargo", "Cargo")}
                   {text("organizacion_politica", "Organización política")}
-                  {text("numero_lista", "Número de lista", false)}
+                  {text("numero_lista", "Número de lista (opcional)", false)}
                   {text("orden_visual", "Orden visual", true, "number")}
+                  <div className="field flex justify-end pt-5">
+                    <CheckField
+                      id="edit-active"
+                      label="Candidato activo en el sondeo"
+                      checked={Boolean(values.activo)}
+                      onChange={(v) => set("activo", v)}
+                    />
+                  </div>
                   <Upload
-                    label="Fotografía"
+                    label="Fotografía del candidato"
                     bucket="candidatos-fotos"
                     value={values.foto_url as string | null}
                     onChange={(v) => set("foto_url", v)}
                   />
                   <Upload
-                    label="Símbolo"
+                    label="Símbolo de la organización"
                     bucket="candidatos-simbolos"
                     value={values.simbolo_url as string | null}
                     onChange={(v) => set("simbolo_url", v)}
                   />
-                  <CheckField
-                    id="edit-active"
-                    label="Candidato activo"
-                    checked={Boolean(values.activo)}
-                    onChange={(v) => set("activo", v)}
-                  />
                 </>
               ) : (
                 <>
-                  {text("nombre", "Nombre")}
+                  <div className="full">
+                    {text("nombre", "Nombre")}
+                  </div>
                   <SelectField
                     id="edit-type"
                     label="Tipo"
@@ -494,13 +503,17 @@ export function CatalogManager({
                   {text("codigo", "Código (opcional)", false)}
                   {text("departamento", "Departamento")}
                   {text("provincia", "Provincia")}
-                  {text("distrito", "Distrito")}
-                  <CheckField
-                    id="edit-active"
-                    label="Comunidad activa"
-                    checked={Boolean(values.activo)}
-                    onChange={(v) => set("activo", v)}
-                  />
+                  <div className="full">
+                    {text("distrito", "Distrito")}
+                  </div>
+                  <div className="full pt-2">
+                    <CheckField
+                      id="edit-active"
+                      label="Comunidad activa en el sistema"
+                      checked={Boolean(values.activo)}
+                      onChange={(v) => set("activo", v)}
+                    />
+                  </div>
                 </>
               )}
               {entity !== "centros_poblados" && (

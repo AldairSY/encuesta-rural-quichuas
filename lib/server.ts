@@ -65,15 +65,56 @@ export async function publicData() {
         "/rest/v1/encuestas?select=id,titulo,descripcion,departamento,provincia,distrito,fecha_inicio,fecha_fin,estado,mostrar_resultados&order=created_at.desc",
       ),
     ]);
+    const configRaw = configs[0] || null;
+    const config = configRaw
+      ? {
+          ...configRaw,
+          distrito:
+            configRaw.distrito === "Andamarca"
+              ? "Quichuas"
+              : configRaw.distrito || "Quichuas",
+          provincia:
+            configRaw.provincia === "Concepción"
+              ? "Tayacaja"
+              : configRaw.provincia || "Tayacaja",
+          departamento:
+            configRaw.departamento === "Junín"
+              ? "Huancavelica"
+              : configRaw.departamento || "Huancavelica",
+        }
+      : null;
+
+    const adaptedEncuestas = (encuestas as Encuesta[]).map((e) => ({
+      ...e,
+      titulo: e.titulo
+        .replaceAll("Andamarca", "Quichuas")
+        .replaceAll(
+          "Municipalidad Distrital de Andamarca",
+          "Municipalidad Distrital de Quichuas",
+        ),
+      descripcion: e.descripcion
+        .replaceAll("Andamarca", "Quichuas")
+        .replaceAll("Concepción", "Tayacaja")
+        .replaceAll("Junín", "Huancavelica")
+        .replaceAll(
+          "Municipalidad Distrital de Andamarca",
+          "Municipalidad Distrital de Quichuas",
+        ),
+      distrito: e.distrito === "Andamarca" ? "Quichuas" : e.distrito,
+      provincia: e.provincia === "Concepción" ? "Tayacaja" : e.provincia,
+      departamento:
+        e.departamento === "Junín" ? "Huancavelica" : e.departamento,
+    }));
+
     const encuesta =
-      (encuestas as Encuesta[]).find((e) => e.estado === "ACTIVA") ||
-      encuestas[0];
+      adaptedEncuestas.find((e) => e.estado === "ACTIVA") ||
+      adaptedEncuestas[0];
     const resumen = await rpc<Resumen>("get_resumen_publico", {
       encuesta_uuid: encuesta?.id || null,
     });
     return {
-      config: (configs[0] || null) as Config | null,
-      encuestas: encuestas as Encuesta[],
+      config,
+      encuestas: adaptedEncuestas,
       resumen,
       error: false,
     };
