@@ -1,12 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 const origin = process.env.TEST_ORIGIN || "http://localhost:5173";
+// Permite probar por un puerto local distinto del origen fijado en el servidor.
+const requestOrigin = process.env.APP_ORIGIN || origin;
 let catalog;
 test("Catálogo se obtiene del Supabase configurado", async () => {
   const res = await fetch(`${origin}/api/public`);
   assert.equal(res.status, 200);
   catalog = await res.json();
   assert(catalog.config.nombre);
+  const claims = JSON.parse(
+    Buffer.from(catalog.connection.key.split(".")[1], "base64url"),
+  );
+  assert.equal(claims.role, "anon");
   assert.match(catalog.connection.url, /^https:\/\/.+\.supabase\.co$/);
 });
 for (const path of [
@@ -47,7 +53,6 @@ for (const table of [
   "respuestas",
   "fraud_events",
   "audit_logs",
-  "resultado_simulacion",
   "profiles",
 ])
   test(`REST anónimo protege ${table}`, async () => {
@@ -81,33 +86,112 @@ test("RPC agregada anónima permitida", async () => {
   assert(!("dni" in data));
   assert(!("ip_hash" in data));
 });
-test("Edge desplegada valida DNI antes de registrar", async () => {
+// No POST a participar: incluso un DNI inválido incrementa rate_windows.
+test("Edge acepta CORS desde el dominio de producción", async () => {
   const res = await fetch(`${catalog.connection.url}/functions/v1/participar`, {
-    method: "POST",
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://encuesta-rural-quichuas.vercel.app",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "authorization,apikey,content-type",
+    },
+  });
+  assert.equal(res.status, 204);
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.match(res.headers.get("access-control-allow-methods"), /POST/);
+  assert.match(
+    res.headers.get("access-control-allow-headers"),
+    /authorization/,
+  );
+});
+
+test("Edge responde sin registrar intentos ni participaciones", async () => {
+  const res = await fetch(`${catalog.connection.url}/functions/v1/participar`, {
     headers: {
       apikey: catalog.connection.key,
       Authorization: `Bearer ${catalog.connection.key}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ dni: "ABC" }),
   });
-  assert.equal(res.status, 400);
+  assert.equal(res.status, 405);
   const data = await res.json();
-  assert.equal(data.code, "DNI_INVALIDO");
+  assert.equal(data.code, "DATOS_INVALIDOS");
   assert(!("stack" in data));
 });
-test("La participación RPC directa no está expuesta al público", async () => {
+
+test("La RPC antifraude rechaza GET sin modificar contadores", async () => {
   const res = await fetch(
-    `${catalog.connection.url}/rest/v1/rpc/consume_attempt`,
+    `${catalog.connection.url}/rest/v1/rpc/consume_attempt?p_ip_hash=test&p_device_hash=test`,
     {
-      method: "POST",
       headers: {
         apikey: catalog.connection.key,
         Authorization: `Bearer ${catalog.connection.key}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ p_ip_hash: "test", p_device_hash: "test" }),
     },
   );
-  assert([401, 403].includes(res.status));
+  assert([401, 403, 405].includes(res.status));
+});
+
+test("Resultados conservan la simulación pública configurada", async () => {
+  // La migración 20260928000100 permite leer estos resultados públicamente.
+  const res = await fetch(
+    `${catalog.connection.url}/rest/v1/resultado_simulacion?select=candidato_id,porcentaje,cantidad_simulada,total_simulado&limit=1`,
+    {
+      headers: {
+        apikey: catalog.connection.key,
+        Authorization: `Bearer ${catalog.connection.key}`,
+      },
+    },
+  );
+  assert.equal(res.status, 200);
+  assert(Array.isArray(await res.json()));
+});
+
+test("Resultados y resumen responden para las encuestas visibles", async () => {
+  for (const encuesta of catalog.encuestas) {
+    const res = await fetch(`${origin}/api/results?encuesta=${encuesta.id}`);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert(Array.isArray(data.rows));
+    assert(Array.isArray(data.centros));
+    assert(data.summary);
+  }
+});
+
+test("Storage sirve las imágenes existentes sin modificarlas", async () => {
+  const urls = new Set(
+    [
+      catalog.config.logo_url,
+      ...catalog.candidatos.flatMap((c) => [c.foto_url, c.simbolo_url]),
+    ].filter(Boolean),
+  );
+  for (const url of urls) {
+    assert.equal(new URL(url).protocol, "https:");
+    const res = await fetch(url, { method: "HEAD" });
+    assert.equal(res.status, 200);
+    assert(res.headers.get("content-type")?.startsWith("image/"));
+  }
+});
+
+test("Auth de Supabase está disponible", async () => {
+  const res = await fetch(`${catalog.connection.url}/auth/v1/health`, {
+    headers: { apikey: catalog.connection.key },
+  });
+  assert.equal(res.status, 200);
+});
+
+test("El mismo origen alcanza la validación de login sin iniciar sesión", async () => {
+  const res = await fetch(`${origin}/api/auth/login`, {
+    method: "POST",
+    headers: { Origin: requestOrigin, "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(res.status, 400);
+});
+
+test("La subida de imágenes exige sesión antes de procesar archivos", async () => {
+  const res = await fetch(`${origin}/api/admin/upload`, {
+    method: "POST",
+    headers: { Origin: requestOrigin },
+  });
+  assert.equal(res.status, 401);
 });

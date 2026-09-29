@@ -5,8 +5,8 @@ Sistema de Participación Ciudadana. Sondeo de opinión independiente, conectado
 ## Arquitectura
 
 - React 19 + TypeScript, App Router de Next.js.
-- Vinext/Vite para ejecución y publicación en Sites (Cloudflare Workers).
-- `next build` para Vercel, sin cambiar la lógica de negocio.
+- Next.js para desarrollo, compilación y ejecución de producción en Vercel.
+- Vinext/Vite se conserva mediante comandos `*:sites` para Sites (Cloudflare Workers).
 - Supabase es la única base de datos. No se utiliza SQLite, D1 ni una base paralela.
 - API propia para administración y sesiones con cookies HttpOnly/SameSite.
 - Edge Function `participar` para validación, HMAC, límites de solicitudes y llamada a la transacción SQL.
@@ -29,9 +29,10 @@ En PowerShell usa `Copy-Item .env.example .env.local`. El servidor se sirve en `
 npm run lint
 npm run typecheck
 npm test
-npm run test:http  # con el servidor local iniciado
-npm run build     # Worker de Sites
-npm run build:vercel
+npm run test:http  # comprobaciones sin escritura, con el servidor local iniciado
+npm run check:secrets
+npm run build     # Next.js / Vercel (build:vercel se conserva como alias)
+npm start         # servidor de producción en el puerto 5173
 ```
 
 Si el shim npm de Windows falla, usar su entrada JS: `node "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js" run dev`.
@@ -112,16 +113,33 @@ La concurrencia se probó en el mismo Supabase mediante un esquema QA no expuest
 
 ## Desplegar en Vercel
 
-1. Sube este proyecto a un repositorio privado, respetando `.gitignore`.
-2. Importa el repositorio en Vercel. `vercel.json` selecciona Next.js, `npm ci` y `npm run build:vercel`.
-3. Agrega `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `APP_ORIGIN=https://tu-dominio`.
-4. Configura el dominio y redirects de Supabase Auth.
-5. Despliega; comprueba `/`, `/admin` y la conectividad con Supabase.
+1. Importa `https://github.com/AldairSY/encuesta-rural-quichuas` en Vercel con nombre **encuesta-rural-quichuas**, Framework **Next.js** y Root Directory **./**.
+2. Deja desactivados los overrides de Build Command, Output Directory e Install Command. `vercel.json` solo declara el framework; Vercel detecta la instalación, `npm run build` y la salida de Next.js.
+3. En **Settings → Environment Variables**, configura las variables de esta tabla sin prefijos `NEXT_PUBLIC_`. Copia los dos valores de Supabase desde tu `.env.local`; no subas ese archivo.
+
+| Variable | Tipo y uso | Production | Preview |
+| --- | --- | --- | --- |
+| `SUPABASE_URL` | Pública; URL del proyecto Supabase | Obligatoria | Obligatoria |
+| `SUPABASE_ANON_KEY` | Pública; JWT legacy con rol `anon`, también usado por el navegador para participar | Obligatoria | Obligatoria |
+| `APP_ORIGIN` | Configuración del servidor, no es un secreto; valida el origen de las operaciones POST | `https://encuesta-rural-quichuas.vercel.app` | Omitir para usar el origen de cada despliegue, o fijar su dominio exacto |
+
+No copies `APP_ORIGIN` de desarrollo a Production y no asignes el dominio de Production a Preview: bloquearía el login y las escrituras con HTTP 403. Usa el origen sin barra final ni `/admin`. Si agregas un dominio propio, actualiza esta variable al dominio canónico utilizado por el administrador.
+
+4. En Supabase **Authentication → URL Configuration**, configura **Site URL** como `https://encuesta-rural-quichuas.vercel.app` y permite `https://encuesta-rural-quichuas.vercel.app/admin` en **Redirect URLs**. Conserva el origen local si lo necesitas; para probar confirmaciones en Preview, permite únicamente los dominios Preview que uses. El login existente usa correo/contraseña, no un callback OAuth.
+5. Despliega y comprueba `/`, `/participar`, `/resultados`, `/informacion` y `/admin`. Tras cambiar variables de Vercel, genera un nuevo despliegue. No vuelvas a ejecutar migraciones o seeds sobre la base existente como parte de este despliegue.
 
 No agregues `SUPABASE_SERVICE_ROLE_KEY` al frontend ni al proyecto Vercel. La Edge Function ya recibe esa clave dentro de Supabase. `.env.local`, artefactos y credenciales están excluidos de Git.
 
+`IP_HASH_SECRET` es opcional y pertenece exclusivamente a Supabase Edge. `NODE_ENV` lo administra Next.js/Vercel. `TEST_ORIGIN` solo sirve para pruebas; las variables de Wrangler, Miniflare, Sites y el instalador no son necesarias en Vercel. No hay variables `DATABASE_*` ni `NEXT_PUBLIC_*` requeridas por la aplicación.
+
+La participación se envía directamente a la Edge Function de Supabase, que permite CORS para POST/OPTIONS; no requiere añadir una URL de Vercel al código. Las imágenes usan URLs HTTPS de Storage y etiquetas `img`. Las subidas pasan por una API autenticada y conservan el límite de 3 MiB, dentro del límite de cuerpo de Vercel Functions.
+
+La suite `test:http` consulta catálogos, resultados y permisos sin registrar participaciones ni subir archivos. No sustituye una prueba autenticada de alta/edición con una cuenta administrativa. Los scripts SQL de integración/concurrencia no se ejecutan al instalar ni al compilar.
+
+Referencias: [detección de compilación en Vercel](https://vercel.com/docs/builds/configure-a-build), [claves de Supabase](https://supabase.com/docs/guides/getting-started/api-keys).
+
 ## Publicación en Sites
 
-`.openai/hosting.json` identifica el sitio ya creado. Debe reutilizarse, sin crear otro ni cambiar su ID. El build genera un Worker ESM en `dist/server/index.js`; el empaquetado y publicación usan la habilidad Sites. El sitio se creó privado y no se ha autorizado ampliar su audiencia. La disponibilidad pública para ciudadanos requiere publicar en Vercel o cambiar explícitamente el acceso del sitio.
+`.openai/hosting.json` identifica el sitio ya creado. Debe reutilizarse, sin crear otro ni cambiar su ID. `npm run dev:sites`, `npm run build:sites` y `npm run start:sites` conservan el flujo original; la compilación genera un Worker ESM en `dist/server/index.js`. El empaquetado y publicación usan la habilidad Sites. El sitio se creó privado y no se ha autorizado ampliar su audiencia. La disponibilidad pública para ciudadanos requiere publicar en Vercel o cambiar explícitamente el acceso del sitio.
 
 Consulta `docs/INFORME_ENTREGA.md` para el inventario, evidencias y limitaciones de la entrega.
